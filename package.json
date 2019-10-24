@@ -1,0 +1,37 @@
+{
+  "name": "skylark-domx-files",
+  "version": "0.9.1",
+  "description": "The filer features enhancement for skylark utils.",
+  "main": "-",
+  "scripts": {
+    "build": "sbundle build .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "homepage": "www.skylarkjs.org",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skylark-domx/skylark-domx-files.git"
+  },
+  "keywords": [
+    "skylark",
+    "skylarkjs",
+    "javacript",
+    "library",
+    "utility",
+    "html5",
+    "file"
+  ],
+  "author": "Hudaokeji Co.,Ltd",
+  "license": "MIT",
+  "bugs": "https://github.com/skylarkjs/skylark/issues",
+  "dependencies": {
+    "skylark-domx-eventer": "git+https://github.com/skylark-domx/skylark-domx-eventer.git#master",
+    "skylark-domx-query": "git+https://github.com/skylark-domx/skylark-domx-query.git#master",
+    "skylark-domx-styler": "git+https://github.com/skylark-domx/skylark-domx-styler.git#master",
+    "skylark-storages-diskfs": "git+https://github.com/skylark-storages/skylark-storages-diskfs.git#master",
+    "skylark-langx": "git+https://github.com/skylarklangx/skylark-langx.git#master"
+  },
+  "engines": {
+    "node": ">=0.8.0"
+  }
+}
