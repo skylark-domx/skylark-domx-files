@@ -6,8 +6,8 @@ define([
     "./dropzone",
     "./pastezone",
     "./picker",
-    "skylark-storages-diskfs/upload"
-],function (langx,eventer,$,diskfs,dropzone,pastezone,picker,upload) {
+    "skylark-net-http/upload"
+],function (langx,eventer,$,files,dropzone,pastezone,picker,upload) {
     'use strict';
 
     var Deferred = langx.Deferred;
@@ -776,6 +776,6 @@ define([
         return fuInst;
     }
 
-    return diskfs.uploader = uploader;
+    return files.uploader = uploader;
 
 });

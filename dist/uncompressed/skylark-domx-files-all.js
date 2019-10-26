@@ -3254,15 +3254,21 @@ define('skylark-langx/strings',[
 ],function(strings){
     return strings;
 });
-define('skylark-langx-xhr/Xhr',[
+define('skylark-net-http/http',[
+  "skylark-langx-ns/ns",
+],function(skylark){
+	return skylark.attach("net.http",{});
+});
+define('skylark-net-http/Xhr',[
   "skylark-langx-ns/ns",
   "skylark-langx-types",
   "skylark-langx-objects",
   "skylark-langx-arrays",
   "skylark-langx-funcs",
   "skylark-langx-async/Deferred",
-  "skylark-langx-emitter/Evented"
-],function(skylark,types,objects,arrays,funcs,Deferred,Evented){
+  "skylark-langx-emitter/Evented",
+  "./http"
+],function(skylark,types,objects,arrays,funcs,Deferred,Evented,http){
 
     var each = objects.each,
         mixin = objects.mixin,
@@ -3610,19 +3616,12 @@ define('skylark-langx-xhr/Xhr',[
         return Xhr;
     })();
 
-	return skylark.attach("langx.Xhr",Xhr);	
+	return http.Xhr = Xhr;	
 });
-define('skylark-langx-xhr/main',[
-	"./Xhr"
-],function(Xhr){
-	return Xhr;
-});
-define('skylark-langx-xhr', ['skylark-langx-xhr/main'], function (main) { return main; });
-
 define('skylark-langx/Xhr',[
-    "skylark-langx-xhr"
-],function(xhr){
-    return xhr;
+    "skylark-net-http/Xhr"
+],function(Xhr){
+    return Xhr;
 });
 define('skylark-langx/Restful',[
     "./Evented",
@@ -10580,14 +10579,14 @@ define('skylark-domx-query/main',[
 });
 define('skylark-domx-query', ['skylark-domx-query/main'], function (main) { return main; });
 
-define('skylark-storages-diskfs/upload',[
-	"skylark-langx/types",
-	"skylark-langx/objects",
-	"skylark-langx/arrays",
-    "skylark-langx/Deferred",
-	"skylark-langx/Xhr",
-	"./diskfs"
-],function(types, objects, arrays, Deferred,Xhr, diskfs){
+define('skylark-net-http/upload',[
+	"skylark-langx-types",
+	"skylark-langx-objects",
+	"skylark-langx-arrays",
+    "skylark-langx-async/Deferred",
+	"./Xhr",
+	"./http"
+],function(types, objects, arrays, Deferred,Xhr, http){
 
     function upload(params) {
         var xoptions = objects.mixin({
@@ -10640,8 +10639,7 @@ define('skylark-storages-diskfs/upload',[
             recalculateProgress: true,
             // Interval in milliseconds to calculate and trigger progress events:
             progressInterval: 100,
-            // Interval in milliseconds to calculate progress bitrate:
-            bitrateInterval: 500,
+
             // By default, uploads are started automatically when adding files:
             autoUpload: true,
 
@@ -10838,28 +10836,12 @@ define('skylark-storages-diskfs/upload',[
             var progress = {
                 loaded: 0,
                 total: 0,
-                bitrate: 0
             };
             if (obj._progress) {
                 objects.mixin(obj._progress, progress);
             } else {
                 obj._progress = progress;
             }
-        }
-
-        function BitrateTimer() {
-            this.timestamp = ((Date.now) ? Date.now() : (new Date()).getTime());
-            this.loaded = 0;
-            this.bitrate = 0;
-            this.getBitrate = function(now, loaded, interval) {
-                var timeDiff = now - this.timestamp;
-                if (!this.bitrate || !interval || timeDiff > interval) {
-                    this.bitrate = (loaded - this.loaded) * (1000 / timeDiff) * 8;
-                    this.loaded = loaded;
-                    this.timestamp = now;
-                }
-                return this.bitrate;
-            };
         }
 
         function chunkedUpload(options, testOnly) {
@@ -10959,8 +10941,6 @@ define('skylark-storages-diskfs/upload',[
 
         initDataSettings(xoptions);
 
-        xoptions._bitrateTimer = new BitrateTimer();
-
         var jqXhr = chunkedUpload(xoptions) || ajax(xoptions);
 
         jqXhr.options = xoptions;
@@ -10968,7 +10948,7 @@ define('skylark-storages-diskfs/upload',[
         return jqXhr;
     }
 
-	return diskfs.upload = upload;	
+	return http.upload = upload;	
 });
 define('skylark-domx-files/uploader',[
     "skylark-langx/langx",
@@ -10978,8 +10958,8 @@ define('skylark-domx-files/uploader',[
     "./dropzone",
     "./pastezone",
     "./picker",
-    "skylark-storages-diskfs/upload"
-],function (langx,eventer,$,diskfs,dropzone,pastezone,picker,upload) {
+    "skylark-net-http/upload"
+],function (langx,eventer,$,files,dropzone,pastezone,picker,upload) {
     'use strict';
 
     var Deferred = langx.Deferred;
@@ -11748,7 +11728,7 @@ define('skylark-domx-files/uploader',[
         return fuInst;
     }
 
-    return diskfs.uploader = uploader;
+    return files.uploader = uploader;
 
 });
 
