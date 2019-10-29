@@ -2,8 +2,7 @@ define([
 	"./files",
 	"./dropzone",
 	"./pastezone",
-	"./picker",
-	"./uploader"
+	"./picker"
 ],function(files){
 	return files;
 });
