@@ -29,7 +29,7 @@
     "skylark-domx-query": "git+https://github.com/skylark-domx/skylark-domx-query.git#master",
     "skylark-domx-styler": "git+https://github.com/skylark-domx/skylark-domx-styler.git#master",
     "skylark-domx-velm": "git+https://github.com/skylark-domx/skylark-domx-velm.git#master",
-    "skylark-langx": "git+https://github.com/skylarklangx/skylark-langx.git#master",
+    "skylark-langx": "git+https://github.com/skylar-langx/skylark-langx.git#master",
     "skylark-storages-diskfs": "git+https://github.com/skylark-storages/skylark-storages-diskfs.git#master"
   },
   "engines": {
