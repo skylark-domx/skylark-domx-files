@@ -5,6 +5,7 @@ define([
 	"./dropzone",
 	"./pastezone",
 	"./picker",
+	"./SingleUploader",
 	"./MultiUploader"
 ],function(files,velm,$){
 	velm.delegate([
