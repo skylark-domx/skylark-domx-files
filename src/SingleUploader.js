@@ -103,61 +103,6 @@ define([
 	  }
 
 
-	  /**
-	   * Inflates a File in .ZIP format, creates the fileMap tree, and emits the
-	   * result.
-	   * @param  {File} file
-	   */
-	  _loadZip (file) {
-	    const pending = [];
-	    const fileMap = new Map();
-
-	    const traverse = (node) => {
-	      if (node.directory) {
-	        node.children.forEach(traverse);
-	      } else if (node.name[0] !== '.') {
-	        pending.push(new Promise((resolve) => {
-	          node.getData(new zip.BlobWriter(), (blob) => {
-	            blob.name = node.name;
-	            fileMap.set(node.getFullname(), blob);
-	            resolve();
-	          });
-	        }));
-	      }
-	    };
-
-	    var self = this;
-
-	    jszip(file).then((zip) => {
-            var defers = [];
-
-	     	zip.forEach((path,zipEntry) => {
-	        	//if (path.match(/\/$/)) return;
-	        	//const fileName = path.replace(/^.*[\\\/]/, '');
-	        	//fileMap.set(path, new File([archive.files[path].buffer], fileName));
-	        	var d = new Deferred();
-	          	zipEntry.async("arraybuffer").then(function(data){
-	            	if (!zipEntry.dir) {
-	             		fileMap.set(zipEntry.name,new Blob([data]));
-	            	} 
-             		d.resolve();
-	          	});
-	          	defers.push(d.promise);
-	      	});
-	      	Deferred.all(defers).then( () =>{
-	      		this.emit('drop', {files: fileMap, archive: file});
-	      	});
-	    });
-	  }
-
-
-	  /**
-	   * @param {string} message
-	   * @throws
-	   */
-	  _fail (message) {
-	    this.emit('fail', {message: message});
-	  }
 	}
 
 	return files.SingleUploader = SingleUploader;

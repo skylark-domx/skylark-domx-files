@@ -1291,6 +1291,515 @@ define('skylark-langx/arrays',[
 ],function(arrays){
   return arrays;
 });
+define('skylark-langx-funcs/funcs',[
+  "skylark-langx-ns/ns",
+  "skylark-langx-types",
+  "skylark-langx-objects"
+],function(skylark,types,objects){
+	var mixin = objects.mixin,
+        slice = Array.prototype.slice,
+        isFunction = types.isFunction,
+        isString = types.isString;
+
+    function defer(fn) {
+        if (requestAnimationFrame) {
+            requestAnimationFrame(fn);
+        } else {
+            setTimeoutout(fn);
+        }
+        return this;
+    }
+
+    function noop() {
+    }
+
+    function proxy(fn, context) {
+        var args = (2 in arguments) && slice.call(arguments, 2)
+        if (isFunction(fn)) {
+            var proxyFn = function() {
+                return fn.apply(context, args ? args.concat(slice.call(arguments)) : arguments);
+            }
+            return proxyFn;
+        } else if (isString(context)) {
+            if (args) {
+                args.unshift(fn[context], fn)
+                return proxy.apply(null, args)
+            } else {
+                return proxy(fn[context], fn);
+            }
+        } else {
+            throw new TypeError("expected function");
+        }
+    }
+
+    function debounce(fn, wait) {
+        var timeout;
+        return function () {
+            var context = this, args = arguments;
+            var later = function () {
+                timeout = null;
+                fn.apply(context, args);
+            };
+            if (timeout) clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+   
+    var delegate = (function() {
+        // boodman/crockford delegation w/ cornford optimization
+        function TMP() {}
+        return function(obj, props) {
+            TMP.prototype = obj;
+            var tmp = new TMP();
+            TMP.prototype = null;
+            if (props) {
+                mixin(tmp, props);
+            }
+            return tmp; // Object
+        };
+    })();
+
+
+    // By default, Underscore uses ERB-style template delimiters, change the
+    // following template settings to use alternative delimiters.
+    var templateSettings = {
+        evaluate: /<%([\s\S]+?)%>/g,
+        interpolate: /<%=([\s\S]+?)%>/g,
+        escape: /<%-([\s\S]+?)%>/g
+    };
+
+    // When customizing `templateSettings`, if you don't want to define an
+    // interpolation, evaluation or escaping regex, we need one that is
+    // guaranteed not to match.
+    var noMatch = /(.)^/;
+
+
+    // Certain characters need to be escaped so that they can be put into a
+    // string literal.
+    var escapes = {
+      "'":      "'",
+      '\\':     '\\',
+      '\r':     'r',
+      '\n':     'n',
+      '\t':     't',
+      '\u2028': 'u2028',
+      '\u2029': 'u2029'
+    };
+
+    var escaper = /\\|'|\r|\n|\t|\u2028|\u2029/g;
+
+
+    function template(text, data, settings) {
+        var render;
+        settings = objects.defaults({}, settings,templateSettings);
+
+        // Combine delimiters into one regular expression via alternation.
+        var matcher = RegExp([
+          (settings.escape || noMatch).source,
+          (settings.interpolate || noMatch).source,
+          (settings.evaluate || noMatch).source
+        ].join('|') + '|$', 'g');
+
+        // Compile the template source, escaping string literals appropriately.
+        var index = 0;
+        var source = "__p+='";
+        text.replace(matcher, function(match, escape, interpolate, evaluate, offset) {
+          source += text.slice(index, offset)
+              .replace(escaper, function(match) { return '\\' + escapes[match]; });
+
+          if (escape) {
+            source += "'+\n((__t=(" + escape + "))==null?'':_.escape(__t))+\n'";
+          }
+          if (interpolate) {
+            source += "'+\n((__t=(" + interpolate + "))==null?'':__t)+\n'";
+          }
+          if (evaluate) {
+            source += "';\n" + evaluate + "\n__p+='";
+          }
+          index = offset + match.length;
+          return match;
+        });
+        source += "';\n";
+
+        // If a variable is not specified, place data values in local scope.
+        if (!settings.variable) source = 'with(obj||{}){\n' + source + '}\n';
+
+        source = "var __t,__p='',__j=Array.prototype.join," +
+          "print=function(){__p+=__j.call(arguments,'');};\n" +
+          source + 'return __p;\n';
+
+        try {
+          render = new Function(settings.variable || 'obj', '_', source);
+        } catch (e) {
+          e.source = source;
+          throw e;
+        }
+
+        if (data) {
+          return render(data,this)
+        }
+        var template = proxy(function(data) {
+          return render.call(this, data,this);
+        },this);
+
+        // Provide the compiled source as a convenience for precompilation.
+        var argument = settings.variable || 'obj';
+        template.source = 'function(' + argument + '){\n' + source + '}';
+
+        return template;
+    }
+
+
+    /**
+     * Creates a function that negates the result of the predicate `func`. The
+     * `func` predicate is invoked with the `this` binding and arguments of the
+     * created function.
+     * @category Function
+     * @param {Function} predicate The predicate to negate.
+     * @returns {Function} Returns the new negated function.
+     * @example
+     *
+     * function isEven(n) {
+     *   return n % 2 == 0
+     * }
+     *
+     * filter([1, 2, 3, 4, 5, 6], negate(isEven))
+     * // => [1, 3, 5]
+     */
+    function negate(predicate) {
+      if (typeof predicate !== 'function') {
+        throw new TypeError('Expected a function')
+      }
+      return function(...args) {
+        return !predicate.apply(this, args)
+      }
+    }
+
+
+    return skylark.attach("langx.funcs",{
+        bind : proxy,
+        
+        debounce: debounce,
+
+        delegate: delegate,
+
+        defer: defer,
+
+        negate: negate,
+
+        noop : noop,
+
+        proxy: proxy,
+
+        returnTrue: function() {
+            return true;
+        },
+
+        returnFalse: function() {
+            return false;
+        },
+
+        templateSettings : templateSettings,
+        template : template
+    });
+});
+define('skylark-langx-funcs/main',[
+	"./funcs"
+],function(funcs){
+	return funcs;
+});
+define('skylark-langx-funcs', ['skylark-langx-funcs/main'], function (main) { return main; });
+
+define('skylark-langx-async/Deferred',[
+    "skylark-langx-arrays",
+	"skylark-langx-funcs",
+    "skylark-langx-objects"
+],function(arrays,funcs,objects){
+    "use strict";
+
+    var slice = Array.prototype.slice,
+        proxy = funcs.proxy,
+        makeArray = arrays.makeArray,
+        result = objects.result,
+        mixin = objects.mixin;
+
+    mixin(Promise.prototype,{
+        always: function(handler) {
+            //this.done(handler);
+            //this.fail(handler);
+            this.then(handler,handler);
+            return this;
+        },
+        done : function() {
+            for (var i = 0;i<arguments.length;i++) {
+                this.then(arguments[i]);
+            }
+            return this;
+        },
+        fail : function(handler) { 
+            //return mixin(Promise.prototype.catch.call(this,handler),added);
+            //return this.then(null,handler);
+            this.catch(handler);
+            return this;
+         }
+    });
+
+
+    var Deferred = function() {
+        var self = this,
+            p = this.promise = makePromise2(new Promise(function(resolve, reject) {
+                self._resolve = resolve;
+                self._reject = reject;
+            }));
+
+        //wrapPromise(p,self);
+
+        //this[PGLISTENERS] = [];
+        //this[PGNOTIFIES] = [];
+
+        //this.resolve = Deferred.prototype.resolve.bind(this);
+        //this.reject = Deferred.prototype.reject.bind(this);
+        //this.progress = Deferred.prototype.progress.bind(this);
+
+    };
+
+   
+    function makePromise2(promise) {
+        // Don't modify any promise that has been already modified.
+        if (promise.isResolved) return promise;
+
+        // Set initial state
+        var isPending = true;
+        var isRejected = false;
+        var isResolved = false;
+
+        // Observe the promise, saving the fulfillment in a closure scope.
+        var result = promise.then(
+            function(v) {
+                isResolved = true;
+                isPending = false;
+                return v; 
+            }, 
+            function(e) {
+                isRejected = true;
+                isPending = false;
+                throw e; 
+            }
+        );
+
+        result.isResolved = function() { return isResolved; };
+        result.isPending = function() { return isPending; };
+        result.isRejected = function() { return isRejected; };
+
+        result.state = function() {
+            if (isResolved) {
+                return 'resolved';
+            }
+            if (isRejected) {
+                return 'rejected';
+            }
+            return 'pending';
+        };
+
+        var notified = [],
+            listeners = [];
+
+          
+        result.then = function(onResolved,onRejected,onProgress) {
+            if (onProgress) {
+                this.progress(onProgress);
+            }
+            return makePromise2(Promise.prototype.then.call(this,
+                onResolved && function(args) {
+                    if (args && args.__ctx__ !== undefined) {
+                        return onResolved.apply(args.__ctx__,args);
+                    } else {
+                        return onResolved(args);
+                    }
+                },
+                onRejected && function(args){
+                    if (args && args.__ctx__ !== undefined) {
+                        return onRejected.apply(args.__ctx__,args);
+                    } else {
+                        return onRejected(args);
+                    }
+                }
+            ));
+        };
+
+        result.progress = function(handler) {
+            notified.forEach(function (value) {
+                handler(value);
+            });
+            listeners.push(handler);
+            return this;
+        };
+
+        result.pipe = result.then;
+
+        result.notify = function(value) {
+            try {
+                notified.push(value);
+
+                return listeners.forEach(function (listener) {
+                    return listener(value);
+                });
+            } catch (error) {
+            this.reject(error);
+            }
+            return this;
+        };
+
+        return result;
+    }
+
+ 
+    Deferred.prototype.resolve = function(value) {
+        var args = slice.call(arguments);
+        return this.resolveWith(null,args);
+    };
+
+    Deferred.prototype.resolveWith = function(context,args) {
+        args = args ? makeArray(args) : []; 
+        args.__ctx__ = context;
+        this._resolve(args);
+        this._resolved = true;
+        return this;
+    };
+
+    Deferred.prototype.notify = function(value) {
+        var p = result(this,"promise");
+        p.notify(value);
+        return this;
+    };
+
+    Deferred.prototype.reject = function(reason) {
+        var args = slice.call(arguments);
+        return this.rejectWith(null,args);
+    };
+
+    Deferred.prototype.rejectWith = function(context,args) {
+        args = args ? makeArray(args) : []; 
+        args.__ctx__ = context;
+        this._reject(args);
+        this._rejected = true;
+        return this;
+    };
+
+    Deferred.prototype.isResolved = function() {
+        var p = result(this,"promise");
+        return p.isResolved();
+    };
+
+    Deferred.prototype.isRejected = function() {
+        var p = result(this,"promise");
+        return p.isRejected();
+    };
+
+    Deferred.prototype.state = function() {
+        var p = result(this,"promise");
+        return p.state();
+    };
+
+    Deferred.prototype.then = function(callback, errback, progback) {
+        var p = result(this,"promise");
+        return p.then(callback, errback, progback);
+    };
+
+    Deferred.prototype.progress = function(progback){
+        var p = result(this,"promise");
+        return p.progress(progback);
+    };
+   
+    Deferred.prototype.catch = function(errback) {
+        var p = result(this,"promise");
+        return p.catch(errback);
+    };
+
+
+    Deferred.prototype.always  = function() {
+        var p = result(this,"promise");
+        p.always.apply(p,arguments);
+        return this;
+    };
+
+    Deferred.prototype.done  = function() {
+        var p = result(this,"promise");
+        p.done.apply(p,arguments);
+        return this;
+    };
+
+    Deferred.prototype.fail = function(errback) {
+        var p = result(this,"promise");
+        p.fail(errback);
+        return this;
+    };
+
+
+    Deferred.all = function(array) {
+        //return wrapPromise(Promise.all(array));
+        var d = new Deferred();
+        Promise.all(array).then(d.resolve.bind(d),d.reject.bind(d));
+        return result(d,"promise");
+    };
+
+    Deferred.first = function(array) {
+        return makePromise2(Promise.race(array));
+    };
+
+
+    Deferred.when = function(valueOrPromise, callback, errback, progback) {
+        var receivedPromise = valueOrPromise && typeof valueOrPromise.then === "function";
+        var nativePromise = receivedPromise && valueOrPromise instanceof Promise;
+
+        if (!receivedPromise) {
+            if (arguments.length > 1) {
+                return callback ? callback(valueOrPromise) : valueOrPromise;
+            } else {
+                return new Deferred().resolve(valueOrPromise);
+            }
+        } else if (!nativePromise) {
+            var deferred = new Deferred(valueOrPromise.cancel);
+            valueOrPromise.then(proxy(deferred.resolve,deferred), proxy(deferred.reject,deferred), deferred.notify);
+            valueOrPromise = deferred.promise;
+        }
+
+        if (callback || errback || progback) {
+            return valueOrPromise.then(callback, errback, progback);
+        }
+        return valueOrPromise;
+    };
+
+    Deferred.reject = function(err) {
+        var d = new Deferred();
+        d.reject(err);
+        return d.promise;
+    };
+
+    Deferred.resolve = function(data) {
+        var d = new Deferred();
+        d.resolve.apply(d,arguments);
+        return d.promise;
+    };
+
+    Deferred.immediate = Deferred.resolve;
+
+
+    Deferred.promise = function(callback) {
+        var d = new Deferred();
+
+        callback(d.resolve.bind(d),d.reject.bind(d),d.progress.bind(d));
+
+        return d.promise;
+    };
+
+    return Deferred;
+});
+define('skylark-langx/Deferred',[
+    "skylark-langx-async/Deferred"
+],function(Deferred){
+    return Deferred;
+});
 define('skylark-langx-klass/klass',[
   "skylark-langx-ns/ns",
   "skylark-langx-types",
@@ -2036,510 +2545,6 @@ define('skylark-langx/aspect',[
 ],function(aspect){
   return aspect;
 });
-define('skylark-langx-funcs/funcs',[
-  "skylark-langx-ns/ns",
-  "skylark-langx-types",
-  "skylark-langx-objects"
-],function(skylark,types,objects){
-	var mixin = objects.mixin,
-        slice = Array.prototype.slice,
-        isFunction = types.isFunction,
-        isString = types.isString;
-
-    function defer(fn) {
-        if (requestAnimationFrame) {
-            requestAnimationFrame(fn);
-        } else {
-            setTimeoutout(fn);
-        }
-        return this;
-    }
-
-    function noop() {
-    }
-
-    function proxy(fn, context) {
-        var args = (2 in arguments) && slice.call(arguments, 2)
-        if (isFunction(fn)) {
-            var proxyFn = function() {
-                return fn.apply(context, args ? args.concat(slice.call(arguments)) : arguments);
-            }
-            return proxyFn;
-        } else if (isString(context)) {
-            if (args) {
-                args.unshift(fn[context], fn)
-                return proxy.apply(null, args)
-            } else {
-                return proxy(fn[context], fn);
-            }
-        } else {
-            throw new TypeError("expected function");
-        }
-    }
-
-    function debounce(fn, wait) {
-        var timeout;
-        return function () {
-            var context = this, args = arguments;
-            var later = function () {
-                timeout = null;
-                fn.apply(context, args);
-            };
-            if (timeout) clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-   
-    var delegate = (function() {
-        // boodman/crockford delegation w/ cornford optimization
-        function TMP() {}
-        return function(obj, props) {
-            TMP.prototype = obj;
-            var tmp = new TMP();
-            TMP.prototype = null;
-            if (props) {
-                mixin(tmp, props);
-            }
-            return tmp; // Object
-        };
-    })();
-
-
-    // By default, Underscore uses ERB-style template delimiters, change the
-    // following template settings to use alternative delimiters.
-    var templateSettings = {
-        evaluate: /<%([\s\S]+?)%>/g,
-        interpolate: /<%=([\s\S]+?)%>/g,
-        escape: /<%-([\s\S]+?)%>/g
-    };
-
-    // When customizing `templateSettings`, if you don't want to define an
-    // interpolation, evaluation or escaping regex, we need one that is
-    // guaranteed not to match.
-    var noMatch = /(.)^/;
-
-
-    // Certain characters need to be escaped so that they can be put into a
-    // string literal.
-    var escapes = {
-      "'":      "'",
-      '\\':     '\\',
-      '\r':     'r',
-      '\n':     'n',
-      '\t':     't',
-      '\u2028': 'u2028',
-      '\u2029': 'u2029'
-    };
-
-    var escaper = /\\|'|\r|\n|\t|\u2028|\u2029/g;
-
-
-    function template(text, data, settings) {
-        var render;
-        settings = objects.defaults({}, settings,templateSettings);
-
-        // Combine delimiters into one regular expression via alternation.
-        var matcher = RegExp([
-          (settings.escape || noMatch).source,
-          (settings.interpolate || noMatch).source,
-          (settings.evaluate || noMatch).source
-        ].join('|') + '|$', 'g');
-
-        // Compile the template source, escaping string literals appropriately.
-        var index = 0;
-        var source = "__p+='";
-        text.replace(matcher, function(match, escape, interpolate, evaluate, offset) {
-          source += text.slice(index, offset)
-              .replace(escaper, function(match) { return '\\' + escapes[match]; });
-
-          if (escape) {
-            source += "'+\n((__t=(" + escape + "))==null?'':_.escape(__t))+\n'";
-          }
-          if (interpolate) {
-            source += "'+\n((__t=(" + interpolate + "))==null?'':__t)+\n'";
-          }
-          if (evaluate) {
-            source += "';\n" + evaluate + "\n__p+='";
-          }
-          index = offset + match.length;
-          return match;
-        });
-        source += "';\n";
-
-        // If a variable is not specified, place data values in local scope.
-        if (!settings.variable) source = 'with(obj||{}){\n' + source + '}\n';
-
-        source = "var __t,__p='',__j=Array.prototype.join," +
-          "print=function(){__p+=__j.call(arguments,'');};\n" +
-          source + 'return __p;\n';
-
-        try {
-          render = new Function(settings.variable || 'obj', '_', source);
-        } catch (e) {
-          e.source = source;
-          throw e;
-        }
-
-        if (data) {
-          return render(data,this)
-        }
-        var template = proxy(function(data) {
-          return render.call(this, data,this);
-        },this);
-
-        // Provide the compiled source as a convenience for precompilation.
-        var argument = settings.variable || 'obj';
-        template.source = 'function(' + argument + '){\n' + source + '}';
-
-        return template;
-    }
-
-
-    /**
-     * Creates a function that negates the result of the predicate `func`. The
-     * `func` predicate is invoked with the `this` binding and arguments of the
-     * created function.
-     * @category Function
-     * @param {Function} predicate The predicate to negate.
-     * @returns {Function} Returns the new negated function.
-     * @example
-     *
-     * function isEven(n) {
-     *   return n % 2 == 0
-     * }
-     *
-     * filter([1, 2, 3, 4, 5, 6], negate(isEven))
-     * // => [1, 3, 5]
-     */
-    function negate(predicate) {
-      if (typeof predicate !== 'function') {
-        throw new TypeError('Expected a function')
-      }
-      return function(...args) {
-        return !predicate.apply(this, args)
-      }
-    }
-
-
-    return skylark.attach("langx.funcs",{
-        bind : proxy,
-        
-        debounce: debounce,
-
-        delegate: delegate,
-
-        defer: defer,
-
-        negate: negate,
-
-        noop : noop,
-
-        proxy: proxy,
-
-        returnTrue: function() {
-            return true;
-        },
-
-        returnFalse: function() {
-            return false;
-        },
-
-        templateSettings : templateSettings,
-        template : template
-    });
-});
-define('skylark-langx-funcs/main',[
-	"./funcs"
-],function(funcs){
-	return funcs;
-});
-define('skylark-langx-funcs', ['skylark-langx-funcs/main'], function (main) { return main; });
-
-define('skylark-langx-async/Deferred',[
-    "skylark-langx-arrays",
-	"skylark-langx-funcs",
-    "skylark-langx-objects"
-],function(arrays,funcs,objects){
-    "use strict";
-
-    var slice = Array.prototype.slice,
-        proxy = funcs.proxy,
-        makeArray = arrays.makeArray,
-        result = objects.result,
-        mixin = objects.mixin;
-
-    mixin(Promise.prototype,{
-        always: function(handler) {
-            //this.done(handler);
-            //this.fail(handler);
-            this.then(handler,handler);
-            return this;
-        },
-        done : function() {
-            for (var i = 0;i<arguments.length;i++) {
-                this.then(arguments[i]);
-            }
-            return this;
-        },
-        fail : function(handler) { 
-            //return mixin(Promise.prototype.catch.call(this,handler),added);
-            //return this.then(null,handler);
-            this.catch(handler);
-            return this;
-         }
-    });
-
-
-    var Deferred = function() {
-        var self = this,
-            p = this.promise = makePromise2(new Promise(function(resolve, reject) {
-                self._resolve = resolve;
-                self._reject = reject;
-            }));
-
-        //wrapPromise(p,self);
-
-        //this[PGLISTENERS] = [];
-        //this[PGNOTIFIES] = [];
-
-        //this.resolve = Deferred.prototype.resolve.bind(this);
-        //this.reject = Deferred.prototype.reject.bind(this);
-        //this.progress = Deferred.prototype.progress.bind(this);
-
-    };
-
-   
-    function makePromise2(promise) {
-        // Don't modify any promise that has been already modified.
-        if (promise.isResolved) return promise;
-
-        // Set initial state
-        var isPending = true;
-        var isRejected = false;
-        var isResolved = false;
-
-        // Observe the promise, saving the fulfillment in a closure scope.
-        var result = promise.then(
-            function(v) {
-                isResolved = true;
-                isPending = false;
-                return v; 
-            }, 
-            function(e) {
-                isRejected = true;
-                isPending = false;
-                throw e; 
-            }
-        );
-
-        result.isResolved = function() { return isResolved; };
-        result.isPending = function() { return isPending; };
-        result.isRejected = function() { return isRejected; };
-
-        result.state = function() {
-            if (isResolved) {
-                return 'resolved';
-            }
-            if (isRejected) {
-                return 'rejected';
-            }
-            return 'pending';
-        };
-
-        var notified = [],
-            listeners = [];
-
-          
-        result.then = function(onResolved,onRejected,onProgress) {
-            if (onProgress) {
-                this.progress(onProgress);
-            }
-            return makePromise2(Promise.prototype.then.call(this,
-                onResolved && function(args) {
-                    if (args && args.__ctx__ !== undefined) {
-                        return onResolved.apply(args.__ctx__,args);
-                    } else {
-                        return onResolved(args);
-                    }
-                },
-                onRejected && function(args){
-                    if (args && args.__ctx__ !== undefined) {
-                        return onRejected.apply(args.__ctx__,args);
-                    } else {
-                        return onRejected(args);
-                    }
-                }
-            ));
-        };
-
-        result.progress = function(handler) {
-            notified.forEach(function (value) {
-                handler(value);
-            });
-            listeners.push(handler);
-            return this;
-        };
-
-        result.pipe = result.then;
-
-        result.notify = function(value) {
-            try {
-                notified.push(value);
-
-                return listeners.forEach(function (listener) {
-                    return listener(value);
-                });
-            } catch (error) {
-            this.reject(error);
-            }
-            return this;
-        };
-
-        return result;
-    }
-
- 
-    Deferred.prototype.resolve = function(value) {
-        var args = slice.call(arguments);
-        return this.resolveWith(null,args);
-    };
-
-    Deferred.prototype.resolveWith = function(context,args) {
-        args = args ? makeArray(args) : []; 
-        args.__ctx__ = context;
-        this._resolve(args);
-        this._resolved = true;
-        return this;
-    };
-
-    Deferred.prototype.notify = function(value) {
-        var p = result(this,"promise");
-        p.notify(value);
-        return this;
-    };
-
-    Deferred.prototype.reject = function(reason) {
-        var args = slice.call(arguments);
-        return this.rejectWith(null,args);
-    };
-
-    Deferred.prototype.rejectWith = function(context,args) {
-        args = args ? makeArray(args) : []; 
-        args.__ctx__ = context;
-        this._reject(args);
-        this._rejected = true;
-        return this;
-    };
-
-    Deferred.prototype.isResolved = function() {
-        var p = result(this,"promise");
-        return p.isResolved();
-    };
-
-    Deferred.prototype.isRejected = function() {
-        var p = result(this,"promise");
-        return p.isRejected();
-    };
-
-    Deferred.prototype.state = function() {
-        var p = result(this,"promise");
-        return p.state();
-    };
-
-    Deferred.prototype.then = function(callback, errback, progback) {
-        var p = result(this,"promise");
-        return p.then(callback, errback, progback);
-    };
-
-    Deferred.prototype.progress = function(progback){
-        var p = result(this,"promise");
-        return p.progress(progback);
-    };
-   
-    Deferred.prototype.catch = function(errback) {
-        var p = result(this,"promise");
-        return p.catch(errback);
-    };
-
-
-    Deferred.prototype.always  = function() {
-        var p = result(this,"promise");
-        p.always.apply(p,arguments);
-        return this;
-    };
-
-    Deferred.prototype.done  = function() {
-        var p = result(this,"promise");
-        p.done.apply(p,arguments);
-        return this;
-    };
-
-    Deferred.prototype.fail = function(errback) {
-        var p = result(this,"promise");
-        p.fail(errback);
-        return this;
-    };
-
-
-    Deferred.all = function(array) {
-        //return wrapPromise(Promise.all(array));
-        var d = new Deferred();
-        Promise.all(array).then(d.resolve.bind(d),d.reject.bind(d));
-        return result(d,"promise");
-    };
-
-    Deferred.first = function(array) {
-        return makePromise2(Promise.race(array));
-    };
-
-
-    Deferred.when = function(valueOrPromise, callback, errback, progback) {
-        var receivedPromise = valueOrPromise && typeof valueOrPromise.then === "function";
-        var nativePromise = receivedPromise && valueOrPromise instanceof Promise;
-
-        if (!receivedPromise) {
-            if (arguments.length > 1) {
-                return callback ? callback(valueOrPromise) : valueOrPromise;
-            } else {
-                return new Deferred().resolve(valueOrPromise);
-            }
-        } else if (!nativePromise) {
-            var deferred = new Deferred(valueOrPromise.cancel);
-            valueOrPromise.then(proxy(deferred.resolve,deferred), proxy(deferred.reject,deferred), deferred.notify);
-            valueOrPromise = deferred.promise;
-        }
-
-        if (callback || errback || progback) {
-            return valueOrPromise.then(callback, errback, progback);
-        }
-        return valueOrPromise;
-    };
-
-    Deferred.reject = function(err) {
-        var d = new Deferred();
-        d.reject(err);
-        return d.promise;
-    };
-
-    Deferred.resolve = function(data) {
-        var d = new Deferred();
-        d.resolve.apply(d,arguments);
-        return d.promise;
-    };
-
-    Deferred.immediate = Deferred.resolve;
-
-
-    Deferred.promise = function(callback) {
-        var d = new Deferred();
-
-        callback(d.resolve.bind(d),d.reject.bind(d),d.progress.bind(d));
-
-        return d.promise;
-    };
-
-    return Deferred;
-});
 define('skylark-langx-async/async',[
     "skylark-langx-ns",
     "skylark-langx-objects",
@@ -2687,11 +2692,6 @@ define('skylark-langx/datetimes',[
     "skylark-langx-datetimes"
 ],function(datetimes){
     return datetimes;
-});
-define('skylark-langx/Deferred',[
-    "skylark-langx-async/Deferred"
-],function(Deferred){
-    return Deferred;
 });
 define('skylark-langx-events/events',[
 	"skylark-langx-ns"
@@ -4281,6 +4281,273 @@ define('skylark-langx/langx',[
     });
 
     return skylark.langx = langx;
+});
+define('skylark-domx-styler/styler',[
+    "skylark-langx/skylark",
+    "skylark-langx/langx"
+], function(skylark, langx) {
+    var every = Array.prototype.every,
+        forEach = Array.prototype.forEach,
+        camelCase = langx.camelCase,
+        dasherize = langx.dasherize;
+
+    function maybeAddPx(name, value) {
+        return (typeof value == "number" && !cssNumber[dasherize(name)]) ? value + "px" : value
+    }
+
+    var cssNumber = {
+            'column-count': 1,
+            'columns': 1,
+            'font-weight': 1,
+            'line-height': 1,
+            'opacity': 1,
+            'z-index': 1,
+            'zoom': 1
+        },
+        classReCache = {
+
+        };
+
+    function classRE(name) {
+        return name in classReCache ?
+            classReCache[name] : (classReCache[name] = new RegExp('(^|\\s)' + name + '(\\s|$)'));
+    }
+
+    // access className property while respecting SVGAnimatedString
+    /*
+     * Adds the specified class(es) to each element in the set of matched elements.
+     * @param {HTMLElement} node
+     * @param {String} value
+     */
+    function className(node, value) {
+        var klass = node.className || '',
+            svg = klass && klass.baseVal !== undefined
+
+        if (value === undefined) return svg ? klass.baseVal : klass
+        svg ? (klass.baseVal = value) : (node.className = value)
+    }
+
+    function disabled(elm, value ) {
+        if (arguments.length < 2) {
+            return !!this.dom.disabled;
+        }
+
+        elm.disabled = value;
+
+        return this;
+    }
+
+    var elementDisplay = {};
+
+    function defaultDisplay(nodeName) {
+        var element, display
+        if (!elementDisplay[nodeName]) {
+            element = document.createElement(nodeName)
+            document.body.appendChild(element)
+            display = getStyles(element).getPropertyValue("display")
+            element.parentNode.removeChild(element)
+            display == "none" && (display = "block")
+            elementDisplay[nodeName] = display
+        }
+        return elementDisplay[nodeName]
+    }
+    /*
+     * Display the matched elements.
+     * @param {HTMLElement} elm
+     */
+    function show(elm) {
+        styler.css(elm, "display", "");
+        if (styler.css(elm, "display") == "none") {
+            styler.css(elm, "display", defaultDisplay(elm.nodeName));
+        }
+        return this;
+    }
+
+    function isInvisible(elm) {
+        return styler.css(elm, "display") == "none" || styler.css(elm, "opacity") == 0;
+    }
+
+    /*
+     * Hide the matched elements.
+     * @param {HTMLElement} elm
+     */
+    function hide(elm) {
+        styler.css(elm, "display", "none");
+        return this;
+    }
+
+    /*
+     * Adds the specified class(es) to each element in the set of matched elements.
+     * @param {HTMLElement} elm
+     * @param {String} name
+     */
+    function addClass(elm, name) {
+        if (!name) return this
+        var cls = className(elm),
+            names;
+        if (langx.isString(name)) {
+            names = name.split(/\s+/g);
+        } else {
+            names = name;
+        }
+        names.forEach(function(klass) {
+            var re = classRE(klass);
+            if (!cls.match(re)) {
+                cls += (cls ? " " : "") + klass;
+            }
+        });
+
+        className(elm, cls);
+
+        return this;
+    }
+
+    function getStyles( elem ) {
+
+        // Support: IE <=11 only, Firefox <=30 (#15098, #14150)
+        // IE throws on elements created in popups
+        // FF meanwhile throws on frame elements through "defaultView.getComputedStyle"
+        var view = elem.ownerDocument.defaultView;
+
+        if ( !view || !view.opener ) {
+            view = window;
+        }
+
+        return view.getComputedStyle( elem);
+    }
+
+
+    /*
+     * Get the value of a computed style property for the first element in the set of matched elements or set one or more CSS properties for every matched element.
+     * @param {HTMLElement} elm
+     * @param {String} property
+     * @param {Any} value
+     */
+    function css(elm, property, value) {
+        if (arguments.length < 3) {
+            var computedStyle,
+                computedStyle = getStyles(elm)
+            if (langx.isString(property)) {
+                return elm.style[camelCase(property)] || computedStyle.getPropertyValue(dasherize(property))
+            } else if (langx.isArrayLike(property)) {
+                var props = {}
+                forEach.call(property, function(prop) {
+                    props[prop] = (elm.style[camelCase(prop)] || computedStyle.getPropertyValue(dasherize(prop)))
+                })
+                return props
+            }
+        }
+
+        var css = '';
+        if (typeof(property) == 'string') {
+            if (!value && value !== 0) {
+                elm.style.removeProperty(dasherize(property));
+            } else {
+                css = dasherize(property) + ":" + maybeAddPx(property, value)
+            }
+        } else {
+            for (key in property) {
+                if (property[key] === undefined) {
+                    continue;
+                }
+                if (!property[key] && property[key] !== 0) {
+                    elm.style.removeProperty(dasherize(key));
+                } else {
+                    css += dasherize(key) + ':' + maybeAddPx(key, property[key]) + ';'
+                }
+            }
+        }
+
+        elm.style.cssText += ';' + css;
+        return this;
+    }
+
+    /*
+     * Determine whether any of the matched elements are assigned the given class.
+     * @param {HTMLElement} elm
+     * @param {String} name
+     */
+    function hasClass(elm, name) {
+        var re = classRE(name);
+        return elm.className && elm.className.match(re);
+    }
+
+    /*
+     * Remove a single class, multiple classes, or all classes from each element in the set of matched elements.
+     * @param {HTMLElement} elm
+     * @param {String} name
+     */
+    function removeClass(elm, name) {
+        if (name) {
+            var cls = className(elm),
+                names;
+
+            if (langx.isString(name)) {
+                names = name.split(/\s+/g);
+            } else {
+                names = name;
+            }
+
+            names.forEach(function(klass) {
+                var re = classRE(klass);
+                if (cls.match(re)) {
+                    cls = cls.replace(re, " ");
+                }
+            });
+
+            className(elm, cls.trim());
+        } else {
+            className(elm, "");
+        }
+
+        return this;
+    }
+
+    /*
+     * Add or remove one or more classes from the specified element.
+     * @param {HTMLElement} elm
+     * @param {String} name
+     * @param {} when
+     */
+    function toggleClass(elm, name, when) {
+        var self = this;
+        name.split(/\s+/g).forEach(function(klass) {
+            if (when === undefined) {
+                when = !hasClass(elm, klass);
+            }
+            if (when) {
+                addClass(elm, klass);
+            } else {
+                removeClass(elm, klass)
+            }
+        });
+
+        return self;
+    }
+
+    var styler = function() {
+        return styler;
+    };
+
+    langx.mixin(styler, {
+        autocssfix: false,
+        cssHooks: {
+
+        },
+
+        addClass: addClass,
+        className: className,
+        css: css,
+        disabled : disabled,        
+        hasClass: hasClass,
+        hide: hide,
+        isInvisible: isInvisible,
+        removeClass: removeClass,
+        show: show,
+        toggleClass: toggleClass
+    });
+
+    return skylark.attach("domx.styler", styler);
 });
 define('skylark-domx-browser/browser',[
     "skylark-langx/skylark",
@@ -7311,273 +7578,6 @@ define('skylark-domx-velm/main',[
 });
 define('skylark-domx-velm', ['skylark-domx-velm/main'], function (main) { return main; });
 
-define('skylark-domx-styler/styler',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx"
-], function(skylark, langx) {
-    var every = Array.prototype.every,
-        forEach = Array.prototype.forEach,
-        camelCase = langx.camelCase,
-        dasherize = langx.dasherize;
-
-    function maybeAddPx(name, value) {
-        return (typeof value == "number" && !cssNumber[dasherize(name)]) ? value + "px" : value
-    }
-
-    var cssNumber = {
-            'column-count': 1,
-            'columns': 1,
-            'font-weight': 1,
-            'line-height': 1,
-            'opacity': 1,
-            'z-index': 1,
-            'zoom': 1
-        },
-        classReCache = {
-
-        };
-
-    function classRE(name) {
-        return name in classReCache ?
-            classReCache[name] : (classReCache[name] = new RegExp('(^|\\s)' + name + '(\\s|$)'));
-    }
-
-    // access className property while respecting SVGAnimatedString
-    /*
-     * Adds the specified class(es) to each element in the set of matched elements.
-     * @param {HTMLElement} node
-     * @param {String} value
-     */
-    function className(node, value) {
-        var klass = node.className || '',
-            svg = klass && klass.baseVal !== undefined
-
-        if (value === undefined) return svg ? klass.baseVal : klass
-        svg ? (klass.baseVal = value) : (node.className = value)
-    }
-
-    function disabled(elm, value ) {
-        if (arguments.length < 2) {
-            return !!this.dom.disabled;
-        }
-
-        elm.disabled = value;
-
-        return this;
-    }
-
-    var elementDisplay = {};
-
-    function defaultDisplay(nodeName) {
-        var element, display
-        if (!elementDisplay[nodeName]) {
-            element = document.createElement(nodeName)
-            document.body.appendChild(element)
-            display = getStyles(element).getPropertyValue("display")
-            element.parentNode.removeChild(element)
-            display == "none" && (display = "block")
-            elementDisplay[nodeName] = display
-        }
-        return elementDisplay[nodeName]
-    }
-    /*
-     * Display the matched elements.
-     * @param {HTMLElement} elm
-     */
-    function show(elm) {
-        styler.css(elm, "display", "");
-        if (styler.css(elm, "display") == "none") {
-            styler.css(elm, "display", defaultDisplay(elm.nodeName));
-        }
-        return this;
-    }
-
-    function isInvisible(elm) {
-        return styler.css(elm, "display") == "none" || styler.css(elm, "opacity") == 0;
-    }
-
-    /*
-     * Hide the matched elements.
-     * @param {HTMLElement} elm
-     */
-    function hide(elm) {
-        styler.css(elm, "display", "none");
-        return this;
-    }
-
-    /*
-     * Adds the specified class(es) to each element in the set of matched elements.
-     * @param {HTMLElement} elm
-     * @param {String} name
-     */
-    function addClass(elm, name) {
-        if (!name) return this
-        var cls = className(elm),
-            names;
-        if (langx.isString(name)) {
-            names = name.split(/\s+/g);
-        } else {
-            names = name;
-        }
-        names.forEach(function(klass) {
-            var re = classRE(klass);
-            if (!cls.match(re)) {
-                cls += (cls ? " " : "") + klass;
-            }
-        });
-
-        className(elm, cls);
-
-        return this;
-    }
-
-    function getStyles( elem ) {
-
-        // Support: IE <=11 only, Firefox <=30 (#15098, #14150)
-        // IE throws on elements created in popups
-        // FF meanwhile throws on frame elements through "defaultView.getComputedStyle"
-        var view = elem.ownerDocument.defaultView;
-
-        if ( !view || !view.opener ) {
-            view = window;
-        }
-
-        return view.getComputedStyle( elem);
-    }
-
-
-    /*
-     * Get the value of a computed style property for the first element in the set of matched elements or set one or more CSS properties for every matched element.
-     * @param {HTMLElement} elm
-     * @param {String} property
-     * @param {Any} value
-     */
-    function css(elm, property, value) {
-        if (arguments.length < 3) {
-            var computedStyle,
-                computedStyle = getStyles(elm)
-            if (langx.isString(property)) {
-                return elm.style[camelCase(property)] || computedStyle.getPropertyValue(dasherize(property))
-            } else if (langx.isArrayLike(property)) {
-                var props = {}
-                forEach.call(property, function(prop) {
-                    props[prop] = (elm.style[camelCase(prop)] || computedStyle.getPropertyValue(dasherize(prop)))
-                })
-                return props
-            }
-        }
-
-        var css = '';
-        if (typeof(property) == 'string') {
-            if (!value && value !== 0) {
-                elm.style.removeProperty(dasherize(property));
-            } else {
-                css = dasherize(property) + ":" + maybeAddPx(property, value)
-            }
-        } else {
-            for (key in property) {
-                if (property[key] === undefined) {
-                    continue;
-                }
-                if (!property[key] && property[key] !== 0) {
-                    elm.style.removeProperty(dasherize(key));
-                } else {
-                    css += dasherize(key) + ':' + maybeAddPx(key, property[key]) + ';'
-                }
-            }
-        }
-
-        elm.style.cssText += ';' + css;
-        return this;
-    }
-
-    /*
-     * Determine whether any of the matched elements are assigned the given class.
-     * @param {HTMLElement} elm
-     * @param {String} name
-     */
-    function hasClass(elm, name) {
-        var re = classRE(name);
-        return elm.className && elm.className.match(re);
-    }
-
-    /*
-     * Remove a single class, multiple classes, or all classes from each element in the set of matched elements.
-     * @param {HTMLElement} elm
-     * @param {String} name
-     */
-    function removeClass(elm, name) {
-        if (name) {
-            var cls = className(elm),
-                names;
-
-            if (langx.isString(name)) {
-                names = name.split(/\s+/g);
-            } else {
-                names = name;
-            }
-
-            names.forEach(function(klass) {
-                var re = classRE(klass);
-                if (cls.match(re)) {
-                    cls = cls.replace(re, " ");
-                }
-            });
-
-            className(elm, cls.trim());
-        } else {
-            className(elm, "");
-        }
-
-        return this;
-    }
-
-    /*
-     * Add or remove one or more classes from the specified element.
-     * @param {HTMLElement} elm
-     * @param {String} name
-     * @param {} when
-     */
-    function toggleClass(elm, name, when) {
-        var self = this;
-        name.split(/\s+/g).forEach(function(klass) {
-            if (when === undefined) {
-                when = !hasClass(elm, klass);
-            }
-            if (when) {
-                addClass(elm, klass);
-            } else {
-                removeClass(elm, klass)
-            }
-        });
-
-        return self;
-    }
-
-    var styler = function() {
-        return styler;
-    };
-
-    langx.mixin(styler, {
-        autocssfix: false,
-        cssHooks: {
-
-        },
-
-        addClass: addClass,
-        className: className,
-        css: css,
-        disabled : disabled,        
-        hasClass: hasClass,
-        hide: hide,
-        isInvisible: isInvisible,
-        removeClass: removeClass,
-        show: show,
-        toggleClass: toggleClass
-    });
-
-    return skylark.attach("domx.styler", styler);
-});
 define('skylark-domx-styler/main',[
 	"./styler",
 	"skylark-domx-velm",
@@ -8986,9 +8986,11 @@ define('skylark-io-diskfs/diskfs',[
     "skylark-langx/Deferred",
     "skylark-domx-styler",
     "skylark-domx-eventer",
-    "./files",
-    "skylark-io-diskfs/webentry"
-],function(arrays,Deferred, styler, eventer, files, webentry){  /*
+    "skylark-domx-velm",
+    "skylark-domx-query",   
+    "skylark-io-diskfs/webentry",   
+    "./files"
+],function(arrays,Deferred, styler, eventer, velm, $, webentry, files){  /*
      * Make the specified element to could accept HTML5 file drag and drop.
      * @param {HTMLElement} elm
      * @param {PlainObject} params
@@ -9047,14 +9049,24 @@ define('skylark-io-diskfs/diskfs',[
 
         return this;
     }
+    files.dropzone = dropzone;
 
-     return files.dropzone = dropzone;
+    velm.delegate([
+        "dropzone"
+    ],files);
+
+
+    $.fn.dropzone = $.wraps.wrapper_every_act(files.dropzone, files);
+
+    return dropzone;
 });
 define('skylark-domx-files/pastezone',[
     "skylark-langx/objects",
     "skylark-domx-eventer",
+    "skylark-domx-velm",
+    "skylark-domx-query",   
     "./files"
-],function(objects, eventer, files){
+],function(objects, eventer,velm,$, files){
     function pastezone(elm, params) {
         params = params || {};
         var hoverClass = params.hoverClass || "pastezone",
@@ -9080,7 +9092,15 @@ define('skylark-domx-files/pastezone',[
         return this;
     }
 
-    return files.pastezone = pastezone;
+    files.pastezone = pastezone;
+
+    velm.delegate([
+        "pastezone"
+    ],files);
+
+    $.fn.pastezone = $.wraps.wrapper_every_act(files.pastezone, files);
+
+    return pastezone;
 
 });
 
@@ -9147,9 +9167,11 @@ define('skylark-io-diskfs/select',[
 define('skylark-domx-files/picker',[
     "skylark-langx/objects",
     "skylark-domx-eventer",
-    "./files",
-    "skylark-io-diskfs/select"
-],function(objects, eventer, files, select){
+    "skylark-domx-velm",
+    "skylark-domx-query",   
+    "skylark-io-diskfs/select",
+    "./files"
+],function(objects, eventer, velm, $, select, files){
     /*
      * Make the specified element to pop-up the file selection dialog box when clicked , and read the contents the files selected from client file system by user.
      * @param {HTMLElement} elm
@@ -9163,7 +9185,15 @@ define('skylark-domx-files/picker',[
         return this;
     }
 
-    return files.picker = picker;
+    files.picker = picker;
+
+    velm.delegate([
+        "picker"
+    ],files);
+
+    $.fn.picker = $.wraps.wrapper_every_act(files.picker, files);
+
+    return picker;
 
 });
 
@@ -11495,61 +11525,6 @@ define('skylark-domx-files/SingleUploader',[
 	  }
 
 
-	  /**
-	   * Inflates a File in .ZIP format, creates the fileMap tree, and emits the
-	   * result.
-	   * @param  {File} file
-	   */
-	  _loadZip (file) {
-	    const pending = [];
-	    const fileMap = new Map();
-
-	    const traverse = (node) => {
-	      if (node.directory) {
-	        node.children.forEach(traverse);
-	      } else if (node.name[0] !== '.') {
-	        pending.push(new Promise((resolve) => {
-	          node.getData(new zip.BlobWriter(), (blob) => {
-	            blob.name = node.name;
-	            fileMap.set(node.getFullname(), blob);
-	            resolve();
-	          });
-	        }));
-	      }
-	    };
-
-	    var self = this;
-
-	    jszip(file).then((zip) => {
-            var defers = [];
-
-	     	zip.forEach((path,zipEntry) => {
-	        	//if (path.match(/\/$/)) return;
-	        	//const fileName = path.replace(/^.*[\\\/]/, '');
-	        	//fileMap.set(path, new File([archive.files[path].buffer], fileName));
-	        	var d = new Deferred();
-	          	zipEntry.async("arraybuffer").then(function(data){
-	            	if (!zipEntry.dir) {
-	             		fileMap.set(zipEntry.name,new Blob([data]));
-	            	} 
-             		d.resolve();
-	          	});
-	          	defers.push(d.promise);
-	      	});
-	      	Deferred.all(defers).then( () =>{
-	      		this.emit('drop', {files: fileMap, archive: file});
-	      	});
-	    });
-	  }
-
-
-	  /**
-	   * @param {string} message
-	   * @throws
-	   */
-	  _fail (message) {
-	    this.emit('fail', {message: message});
-	  }
 	}
 
 	return files.SingleUploader = SingleUploader;
@@ -12654,24 +12629,12 @@ define('skylark-domx-files/MultiUploader',[
 });
 define('skylark-domx-files/main',[
 	"./files",
-	"skylark-domx-velm",
-	"skylark-domx-query",
 	"./dropzone",
 	"./pastezone",
 	"./picker",
 	"./SingleUploader",
 	"./MultiUploader"
-],function(files,velm,$){
-	velm.delegate([
-		"dropzone",
-		"pastezone",
-		"picker"
-	],files);
-
-    $.fn.pastezone = $.wraps.wrapper_every_act(files.pastezone, files);
-    $.fn.dropzone = $.wraps.wrapper_every_act(files.dropzone, files);
-    $.fn.picker = $.wraps.wrapper_every_act(files.picker, files);
-
+],function(files){
 	return files;
 });
 define('skylark-domx-files', ['skylark-domx-files/main'], function (main) { return main; });

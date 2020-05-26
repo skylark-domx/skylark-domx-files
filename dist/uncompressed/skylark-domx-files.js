@@ -114,9 +114,11 @@ define('skylark-domx-files/files',[
     "skylark-langx/Deferred",
     "skylark-domx-styler",
     "skylark-domx-eventer",
-    "./files",
-    "skylark-io-diskfs/webentry"
-],function(arrays,Deferred, styler, eventer, files, webentry){  /*
+    "skylark-domx-velm",
+    "skylark-domx-query",   
+    "skylark-io-diskfs/webentry",   
+    "./files"
+],function(arrays,Deferred, styler, eventer, velm, $, webentry, files){  /*
      * Make the specified element to could accept HTML5 file drag and drop.
      * @param {HTMLElement} elm
      * @param {PlainObject} params
@@ -175,14 +177,24 @@ define('skylark-domx-files/files',[
 
         return this;
     }
+    files.dropzone = dropzone;
 
-     return files.dropzone = dropzone;
+    velm.delegate([
+        "dropzone"
+    ],files);
+
+
+    $.fn.dropzone = $.wraps.wrapper_every_act(files.dropzone, files);
+
+    return dropzone;
 });
 define('skylark-domx-files/pastezone',[
     "skylark-langx/objects",
     "skylark-domx-eventer",
+    "skylark-domx-velm",
+    "skylark-domx-query",   
     "./files"
-],function(objects, eventer, files){
+],function(objects, eventer,velm,$, files){
     function pastezone(elm, params) {
         params = params || {};
         var hoverClass = params.hoverClass || "pastezone",
@@ -208,16 +220,26 @@ define('skylark-domx-files/pastezone',[
         return this;
     }
 
-    return files.pastezone = pastezone;
+    files.pastezone = pastezone;
+
+    velm.delegate([
+        "pastezone"
+    ],files);
+
+    $.fn.pastezone = $.wraps.wrapper_every_act(files.pastezone, files);
+
+    return pastezone;
 
 });
 
 define('skylark-domx-files/picker',[
     "skylark-langx/objects",
     "skylark-domx-eventer",
-    "./files",
-    "skylark-io-diskfs/select"
-],function(objects, eventer, files, select){
+    "skylark-domx-velm",
+    "skylark-domx-query",   
+    "skylark-io-diskfs/select",
+    "./files"
+],function(objects, eventer, velm, $, select, files){
     /*
      * Make the specified element to pop-up the file selection dialog box when clicked , and read the contents the files selected from client file system by user.
      * @param {HTMLElement} elm
@@ -231,7 +253,15 @@ define('skylark-domx-files/picker',[
         return this;
     }
 
-    return files.picker = picker;
+    files.picker = picker;
+
+    velm.delegate([
+        "picker"
+    ],files);
+
+    $.fn.picker = $.wraps.wrapper_every_act(files.picker, files);
+
+    return picker;
 
 });
 
@@ -342,61 +372,6 @@ define('skylark-domx-files/SingleUploader',[
 	  }
 
 
-	  /**
-	   * Inflates a File in .ZIP format, creates the fileMap tree, and emits the
-	   * result.
-	   * @param  {File} file
-	   */
-	  _loadZip (file) {
-	    const pending = [];
-	    const fileMap = new Map();
-
-	    const traverse = (node) => {
-	      if (node.directory) {
-	        node.children.forEach(traverse);
-	      } else if (node.name[0] !== '.') {
-	        pending.push(new Promise((resolve) => {
-	          node.getData(new zip.BlobWriter(), (blob) => {
-	            blob.name = node.name;
-	            fileMap.set(node.getFullname(), blob);
-	            resolve();
-	          });
-	        }));
-	      }
-	    };
-
-	    var self = this;
-
-	    jszip(file).then((zip) => {
-            var defers = [];
-
-	     	zip.forEach((path,zipEntry) => {
-	        	//if (path.match(/\/$/)) return;
-	        	//const fileName = path.replace(/^.*[\\\/]/, '');
-	        	//fileMap.set(path, new File([archive.files[path].buffer], fileName));
-	        	var d = new Deferred();
-	          	zipEntry.async("arraybuffer").then(function(data){
-	            	if (!zipEntry.dir) {
-	             		fileMap.set(zipEntry.name,new Blob([data]));
-	            	} 
-             		d.resolve();
-	          	});
-	          	defers.push(d.promise);
-	      	});
-	      	Deferred.all(defers).then( () =>{
-	      		this.emit('drop', {files: fileMap, archive: file});
-	      	});
-	    });
-	  }
-
-
-	  /**
-	   * @param {string} message
-	   * @throws
-	   */
-	  _fail (message) {
-	    this.emit('fail', {message: message});
-	  }
 	}
 
 	return files.SingleUploader = SingleUploader;
@@ -862,24 +837,12 @@ define('skylark-domx-files/MultiUploader',[
 });
 define('skylark-domx-files/main',[
 	"./files",
-	"skylark-domx-velm",
-	"skylark-domx-query",
 	"./dropzone",
 	"./pastezone",
 	"./picker",
 	"./SingleUploader",
 	"./MultiUploader"
-],function(files,velm,$){
-	velm.delegate([
-		"dropzone",
-		"pastezone",
-		"picker"
-	],files);
-
-    $.fn.pastezone = $.wraps.wrapper_every_act(files.pastezone, files);
-    $.fn.dropzone = $.wraps.wrapper_every_act(files.dropzone, files);
-    $.fn.picker = $.wraps.wrapper_every_act(files.picker, files);
-
+],function(files){
 	return files;
 });
 define('skylark-domx-files', ['skylark-domx-files/main'], function (main) { return main; });

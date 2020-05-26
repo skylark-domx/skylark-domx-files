@@ -1,8 +1,10 @@
 define([
     "skylark-langx/objects",
     "skylark-domx-eventer",
+    "skylark-domx-velm",
+    "skylark-domx-query",   
     "./files"
-],function(objects, eventer, files){
+],function(objects, eventer,velm,$, files){
     function pastezone(elm, params) {
         params = params || {};
         var hoverClass = params.hoverClass || "pastezone",
@@ -28,6 +30,14 @@ define([
         return this;
     }
 
-    return files.pastezone = pastezone;
+    files.pastezone = pastezone;
+
+    velm.delegate([
+        "pastezone"
+    ],files);
+
+    $.fn.pastezone = $.wraps.wrapper_every_act(files.pastezone, files);
+
+    return pastezone;
 
 });

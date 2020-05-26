@@ -3,9 +3,11 @@
     "skylark-langx/Deferred",
     "skylark-domx-styler",
     "skylark-domx-eventer",
-    "./files",
-    "skylark-io-diskfs/webentry"
-],function(arrays,Deferred, styler, eventer, files, webentry){  /*
+    "skylark-domx-velm",
+    "skylark-domx-query",   
+    "skylark-io-diskfs/webentry",   
+    "./files"
+],function(arrays,Deferred, styler, eventer, velm, $, webentry, files){  /*
      * Make the specified element to could accept HTML5 file drag and drop.
      * @param {HTMLElement} elm
      * @param {PlainObject} params
@@ -64,6 +66,14 @@
 
         return this;
     }
+    files.dropzone = dropzone;
 
-     return files.dropzone = dropzone;
+    velm.delegate([
+        "dropzone"
+    ],files);
+
+
+    $.fn.dropzone = $.wraps.wrapper_every_act(files.dropzone, files);
+
+    return dropzone;
 });
