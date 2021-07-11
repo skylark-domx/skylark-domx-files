@@ -25,12 +25,12 @@
   "license": "MIT",
   "bugs": "https://github.com/skylarkjs/skylark/issues",
   "dependencies": {
-    "skylark-domx-eventer": "git+https://github.com/skylark-domx/skylark-domx-eventer.git#master",
-    "skylark-domx-query": "git+https://github.com/skylark-domx/skylark-domx-query.git#master",
-    "skylark-domx-styler": "git+https://github.com/skylark-domx/skylark-domx-styler.git#master",
-    "skylark-domx-velm": "git+https://github.com/skylark-domx/skylark-domx-velm.git#master",
-    "skylark-io-diskfs": "git+https://github.com/skylark-io/skylark-io-diskfs.git#master",
-    "skylark-langx": "git+https://github.com/skylark-langx/skylark-langx.git#master"
+    "skylark-domx-eventer": "git+https://github.com/skylark-domx/skylark-domx-eventer.git",
+    "skylark-domx-query": "git+https://github.com/skylark-domx/skylark-domx-query.git",
+    "skylark-domx-styler": "git+https://github.com/skylark-domx/skylark-domx-styler.git",
+    "skylark-domx-velm": "git+https://github.com/skylark-domx/skylark-domx-velm.git",
+    "skylark-io-diskfs": "git+https://github.com/skylark-io/skylark-io-diskfs.git",
+    "skylark-langx": "git+https://github.com/skylark-langx/skylark-langx.git"
   },
   "engines": {
     "node": ">=0.8.0"
